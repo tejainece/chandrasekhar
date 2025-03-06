@@ -4,37 +4,49 @@ import 'package:chandrasekhar/chandrasekhar.dart';
 import 'package:ramanujan/ramanujan.dart';
 
 abstract class DeterministicParticleCurve {
-  // TODO get normal angle
+  // TODO also return normal angle
   P positionAtT(
-    P initialPosition,
-    P initialVelocity,
     Duration at,
-    double t,
-    double angle,
-  );
+    double t, {
+    P initialPosition = P.origin,
+    P initialVelocity = P.zero,
+    P angleVelocity = P.zero,
+    double angle = 0,
+  });
 }
 
 class LinearDeterministicParticleCurve implements DeterministicParticleCurve {
-  final NormalizedMapper velocityX;
-  final NormalizedMapper velocityY;
+  final NormalizedMapper initialVelocityXEasing;
+  final NormalizedMapper initialVelocityYEasing;
+  final NormalizedMapper angleVelocityXEasing;
+  final NormalizedMapper angleVelocityYEasing;
 
-  LinearDeterministicParticleCurve({
-    this.velocityX = oneNormalizedMapper,
-    this.velocityY = oneNormalizedMapper,
+  const LinearDeterministicParticleCurve({
+    this.initialVelocityXEasing = oneNormalizedMapper,
+    this.initialVelocityYEasing = oneNormalizedMapper,
+    this.angleVelocityXEasing = oneNormalizedMapper,
+    this.angleVelocityYEasing = oneNormalizedMapper,
   });
+
+  // TODO turbulence
 
   @override
   P positionAtT(
-    P initialPosition,
-    P initialVelocity,
     Duration at,
-    double t,
-    double angle,
-  ) {
+    double t, {
+    P initialPosition = P.origin,
+    P initialVelocity = P.zero,
+    P angleVelocity = P.zero,
+    double angle = 0,
+  }) {
     final time = at.inMicroseconds;
     P velocity = P(
-      initialVelocity.x * velocityX(t) * cos(angle),
-      initialVelocity.y * velocityY(t) * sin(angle),
+      initialVelocity.x * initialVelocityXEasing(t),
+      initialVelocity.y * initialVelocityYEasing(t),
+    );
+    velocity += P(
+      cos(angle) * angleVelocity.x * angleVelocityXEasing(t),
+      sin(angle) * angleVelocity.y * angleVelocityYEasing(t),
     );
     P position = initialPosition + P(velocity.x * time, velocity.y * time);
     return position;
@@ -43,20 +55,27 @@ class LinearDeterministicParticleCurve implements DeterministicParticleCurve {
 
 class NewtonianDeterministicParticleCurve
     implements DeterministicParticleCurve {
-  final P gravity;
+  final double gravity;
   final P wind;
-  final P drag;
   final List<P> _forces;
 
+  final NormalizedMapper initialVelocityXEasing;
+  final NormalizedMapper initialVelocityYEasing;
+  final NormalizedMapper angularVelocityXEasing;
+  final NormalizedMapper angularVelocityYEasing;
+
   NewtonianDeterministicParticleCurve({
-    this.gravity = const P(0, 0),
+    this.gravity = 0,
     this.wind = const P(0, 0),
-    this.drag = const P(0, 0),
     List<P> forces = const [],
+    this.initialVelocityXEasing = oneNormalizedMapper,
+    this.initialVelocityYEasing = oneNormalizedMapper,
+    this.angularVelocityXEasing = oneNormalizedMapper,
+    this.angularVelocityYEasing = oneNormalizedMapper,
   }) : _forces = forces.toList();
 
   late final P acceleration = () {
-    P ret = gravity + wind + drag;
+    P ret = P(0, gravity) + wind;
     for (final force in _forces) {
       ret += force;
     }
@@ -67,18 +86,26 @@ class NewtonianDeterministicParticleCurve
 
   @override
   P positionAtT(
-    P initialPosition,
-    P initialVelocity,
     Duration at,
-    double t,
-    double angle,
-  ) {
+    double t, {
+    P initialPosition = P.origin,
+    P initialVelocity = P.zero,
+    P angleVelocity = P.zero,
+    double angle = 0,
+  }) {
     final time = at.inMicroseconds;
     final t2 = time * time;
-    final double x =
-        initialPosition.x + initialVelocity.x * time + acceleration.x * t2 / 2;
-    final double y =
-        initialPosition.y + initialVelocity.y * time + acceleration.x * t2 / 2;
-    return P(x, y);
+    P offset = P(
+      initialVelocity.x * initialVelocityXEasing(t) * time +
+          acceleration.x * t2 / 2,
+      initialVelocity.y * initialVelocityYEasing(t) * time +
+          acceleration.x * t2 / 2,
+    );
+    offset += P(
+      cos(angle) * angleVelocity.x * angularVelocityXEasing(t),
+      sin(angle) * angleVelocity.y * angularVelocityYEasing(t),
+    );
+    P position = initialPosition + offset;
+    return position;
   }
 }

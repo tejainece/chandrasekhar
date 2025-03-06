@@ -4,7 +4,7 @@
 library;
 
 export 'src/deterministic/deterministic_emitter.dart';
-
+export 'src/random_access_rng.dart';
 export 'src/emitter_surface.dart';
 export 'src/normalized_mapper.dart';
 export 'src/particle_system_base.dart';
