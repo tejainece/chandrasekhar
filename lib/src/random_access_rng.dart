@@ -3,8 +3,29 @@ import 'dart:math';
 import 'package:chandrasekhar/chandrasekhar.dart';
 import 'package:ramanujan/ramanujan.dart';
 
+class SeedBucket {
+  final _seeds = <dynamic, int>{};
+
+  final _random = Random.secure();
+
+  void clear() => _seeds.clear();
+
+  void set(instance, [int? value]) {
+    _seeds[instance] = value ?? _random.nextInt(1 << 32);
+  }
+
+  int getSeed(instance, {Random? random}) {
+    int? seed = _seeds[instance];
+    if (seed == null) {
+      seed = (random ?? _random).nextInt(1 << 32);
+      _seeds[instance] = seed;
+    }
+    return seed;
+  }
+}
+
 abstract class RandomAccessRng {
-  double nextDoubleAt(int index);
+  double doubleAt(int index, {int? seed});
 
   const factory RandomAccessRng() = RandomAccessRngImpl;
 }
@@ -21,7 +42,9 @@ class RandomAccessRngImpl implements RandomAccessRng {
   });
 
   @override
-  double nextDoubleAt(int index) => Random(seed + alterer(index)).nextDouble();
+  double doubleAt(int index, {int? seed}) {
+    return Random((seed ?? this.seed) + alterer(index)).nextDouble();
+  }
 }
 
 abstract class RandomRange<T> {
@@ -29,13 +52,13 @@ abstract class RandomRange<T> {
 
   T get max;
 
-  RandomAccessRng get rng;
-
   NormalizedMapper get pdf;
 
   T lerp(double t);
 
-  T randomLerp(int index) => lerp(pdf(rng.nextDoubleAt(index)));
+  // RandomAccessRng get rng;
+
+  // T randomLerp(int index, Random) => lerp(pdf(rng.nextDoubleAt(index)));
 }
 
 class NormalizedDoubleRange extends RandomRange<double> {
@@ -46,23 +69,20 @@ class NormalizedDoubleRange extends RandomRange<double> {
   final double max;
 
   @override
-  final RandomAccessRng rng;
-
-  @override
   final NormalizedMapper pdf;
 
   NormalizedDoubleRange(
     this.min,
     this.max, {
     this.pdf = identityNormalizedMapper,
-    this.rng = const RandomAccessRng(),
   }) {
     assert(min <= max);
     assert(min >= 0);
     assert(max <= 1);
   }
 
-  double lerp(double t) => min + (max - min) * t;
+  @override
+  double lerp(double t) => min + (max - min) * pdf(t);
 }
 
 class DoubleRange extends RandomRange<double> {
@@ -73,21 +93,32 @@ class DoubleRange extends RandomRange<double> {
   final double max;
 
   @override
-  final RandomAccessRng rng;
+  final NormalizedMapper pdf;
+
+  DoubleRange(this.min, this.max, {this.pdf = identityNormalizedMapper}) {
+    assert(min <= max);
+  }
+
+  @override
+  double lerp(double t) => min + (max - min) * pdf(t);
+}
+
+class IntRange extends RandomRange<int> {
+  @override
+  final int min;
+
+  @override
+  final int max;
 
   @override
   final NormalizedMapper pdf;
 
-  DoubleRange(
-    this.min,
-    this.max, {
-    this.pdf = identityNormalizedMapper,
-    this.rng = const RandomAccessRng(),
-  }) {
+  IntRange(this.min, this.max, {this.pdf = identityNormalizedMapper}) {
     assert(min <= max);
   }
 
-  double lerp(double t) => min + (max - min) * t;
+  @override
+  int lerp(double t) => (min + (max - min) * pdf(t)).round();
 }
 
 class DurationRange extends RandomRange<Duration> {
@@ -98,27 +129,20 @@ class DurationRange extends RandomRange<Duration> {
   final Duration max;
 
   @override
-  final RandomAccessRng rng;
-
-  @override
   final NormalizedMapper pdf;
 
-  DurationRange(
-    this.min,
-    this.max, {
-    this.pdf = identityNormalizedMapper,
-    this.rng = const RandomAccessRng(),
-  }) {
+  DurationRange(this.min, this.max, {this.pdf = identityNormalizedMapper}) {
     assert(min <= max);
   }
 
-  Duration lerp(double t) => min + (max - min) * t;
+  @override
+  Duration lerp(double t) => min + (max - min) * pdf(t);
 }
 
 abstract class RandomValue<T> {
   T get value;
 
-  T at(int index);
+  T at(double random);
 }
 
 class RandomDouble implements RandomValue<double> {
@@ -130,15 +154,38 @@ class RandomDouble implements RandomValue<double> {
   const RandomDouble(this.value, {this.randomize});
 
   @override
-  double at(int index) {
+  double at(double random) {
     double ret = value;
     if (randomize != null) {
-      ret += randomize!.randomLerp(index);
+      ret += randomize!.lerp(random);
     }
     return ret;
   }
 
   static const zero = RandomDouble(0);
+}
+
+class RandomInt implements RandomValue<int> {
+  @override
+  final int value;
+
+  final IntRange? randomize;
+
+  const RandomInt(this.value, {this.randomize});
+
+  int get max {
+    if(randomize == null) return value;
+    return value + randomize!.max;
+  }
+
+  @override
+  int at(double random) {
+    int ret = value;
+    if (randomize != null) {
+      ret += randomize!.lerp(random);
+    }
+    return ret;
+  }
 }
 
 class RandomScaledDuration implements RandomValue<Duration> {
@@ -150,10 +197,10 @@ class RandomScaledDuration implements RandomValue<Duration> {
   const RandomScaledDuration(this.value, {this.randomize});
 
   @override
-  Duration at(int index) {
+  Duration at(double random) {
     Duration ret = value;
     if (randomize != null) {
-      ret *= randomize!.randomLerp(index);
+      ret *= randomize!.lerp(random);
     }
     return ret;
   }
@@ -169,13 +216,13 @@ class RandomPoint implements RandomValue<P> {
   const RandomPoint(this.value, {this.randomizeX, this.randomizeY});
 
   @override
-  P at(int index) {
+  P at(double random) {
     P ret = value;
     if (randomizeX != null) {
-      ret += P(randomizeX!.randomLerp(index), 0);
+      ret += P(randomizeX!.lerp(random), 0);
     }
     if (randomizeY != null) {
-      ret += P(0, randomizeY!.randomLerp(index));
+      ret += P(0, randomizeY!.lerp(random));
     }
     return ret;
   }

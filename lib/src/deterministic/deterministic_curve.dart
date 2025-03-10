@@ -4,7 +4,6 @@ import 'package:chandrasekhar/chandrasekhar.dart';
 import 'package:ramanujan/ramanujan.dart';
 
 abstract class DeterministicParticleCurve {
-  // TODO also return normal angle
   P positionAtT(
     Duration at,
     double t, {
@@ -15,13 +14,13 @@ abstract class DeterministicParticleCurve {
   });
 }
 
-class LinearDeterministicParticleCurve implements DeterministicParticleCurve {
+class SimpleDeterministicParticleCurve implements DeterministicParticleCurve {
   final NormalizedMapper initialVelocityXEasing;
   final NormalizedMapper initialVelocityYEasing;
   final NormalizedMapper angleVelocityXEasing;
   final NormalizedMapper angleVelocityYEasing;
 
-  const LinearDeterministicParticleCurve({
+  const SimpleDeterministicParticleCurve({
     this.initialVelocityXEasing = oneNormalizedMapper,
     this.initialVelocityYEasing = oneNormalizedMapper,
     this.angleVelocityXEasing = oneNormalizedMapper,

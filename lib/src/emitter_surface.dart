@@ -6,11 +6,25 @@ abstract class EmitterSurface {
   Radian normalAtPoint(P point);
 }
 
-class LineEmitterSurface extends EmitterSurface {
+class PointEmitterSurface implements EmitterSurface {
+  final P point;
+
+  const PointEmitterSurface(this.point);
+
+  const PointEmitterSurface.origin(): point = P.origin;
+
+  @override
+  P lerp(double t) => point;
+
+  @override
+  Radian normalAtPoint(P point) => Radian(90);
+}
+
+class LineEmitterSurface implements EmitterSurface {
   final P start;
   final P end;
 
-  LineEmitterSurface(this.start, this.end);
+  const LineEmitterSurface(this.start, this.end);
 
   @override
   P lerp(double t) => LineSegment(start, end).lerp(t);

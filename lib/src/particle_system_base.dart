@@ -1,12 +1,7 @@
-import 'package:chandrasekhar/src/emitter_surface.dart';
-import 'package:chandrasekhar/src/normalized_mapper.dart';
-import 'package:chandrasekhar/src/random_access_rng.dart';
 import 'package:ramanujan/ramanujan.dart';
 
 class Particle {
   final int id;
-
-  final int coId;
 
   final P position;
 
@@ -14,18 +9,20 @@ class Particle {
 
   final double lifePercentage;
 
+  final P size;
+
   // TODO trail
 
   Particle({
     required this.id,
-    required this.coId,
     required this.position,
     required this.angle,
     required this.lifePercentage,
+    required this.size,
   });
 
   @override
-  String toString() => '{$id,$position,$angle}';
+  String toString() => '{$id,$position,$angle,$lifePercentage,$size}';
 }
 
 extension DurationExt on Duration {
