@@ -8,23 +8,21 @@ abstract class DeterministicParticleCurve {
     Duration at,
     double t, {
     P initialPosition = P.origin,
-    P initialVelocity = P.zero,
-    P angleVelocity = P.zero,
     double angle = 0,
+
+    /// Controls the speed of the particle while keeping the trajectory the same
+    required double speedMultiplier,
+    required double speed,
   });
 }
 
 class SimpleDeterministicParticleCurve implements DeterministicParticleCurve {
   final NormalizedMapper initialVelocityXEasing;
   final NormalizedMapper initialVelocityYEasing;
-  final NormalizedMapper angleVelocityXEasing;
-  final NormalizedMapper angleVelocityYEasing;
 
   const SimpleDeterministicParticleCurve({
     this.initialVelocityXEasing = oneNormalizedMapper,
     this.initialVelocityYEasing = oneNormalizedMapper,
-    this.angleVelocityXEasing = oneNormalizedMapper,
-    this.angleVelocityYEasing = oneNormalizedMapper,
   });
 
   // TODO turbulence
@@ -34,20 +32,16 @@ class SimpleDeterministicParticleCurve implements DeterministicParticleCurve {
     Duration at,
     double t, {
     P initialPosition = P.origin,
-    P initialVelocity = P.zero,
-    P angleVelocity = P.zero,
+    required double speed,
+    required double speedMultiplier,
     double angle = 0,
   }) {
-    final time = at.inMicroseconds;
+    final time = at.inMicroseconds / Duration.microsecondsPerSecond;
     P velocity = P(
-      initialVelocity.x * initialVelocityXEasing(t),
-      initialVelocity.y * initialVelocityYEasing(t),
+      cos(angle) * speed * initialVelocityXEasing(t),
+      sin(angle) * speed * initialVelocityYEasing(t),
     );
-    velocity += P(
-      cos(angle) * angleVelocity.x * angleVelocityXEasing(t),
-      sin(angle) * angleVelocity.y * angleVelocityYEasing(t),
-    );
-    P position = initialPosition + P(velocity.x * time, velocity.y * time);
+    P position = initialPosition + velocity * speedMultiplier * time;
     return position;
   }
 }
@@ -57,7 +51,6 @@ class NewtonianDeterministicParticleCurve
   final double gravity;
   final P wind;
   final List<P> _forces;
-
   final NormalizedMapper initialVelocityXEasing;
   final NormalizedMapper initialVelocityYEasing;
   final NormalizedMapper angularVelocityXEasing;
@@ -88,21 +81,18 @@ class NewtonianDeterministicParticleCurve
     Duration at,
     double t, {
     P initialPosition = P.origin,
-    P initialVelocity = P.zero,
-    P angleVelocity = P.zero,
+    required double speed,
+    required double speedMultiplier,
     double angle = 0,
   }) {
-    final time = at.inMicroseconds;
-    final t2 = time * time;
+    final double time = at.inMicroseconds / Duration.microsecondsPerSecond;
+    final double time2 = time * time;
+    final speed2 = speedMultiplier * speedMultiplier;
     P offset = P(
-      initialVelocity.x * initialVelocityXEasing(t) * time +
-          acceleration.x * t2 / 2,
-      initialVelocity.y * initialVelocityYEasing(t) * time +
-          acceleration.x * t2 / 2,
-    );
-    offset += P(
-      cos(angle) * angleVelocity.x * angularVelocityXEasing(t),
-      sin(angle) * angleVelocity.y * angularVelocityYEasing(t),
+      cos(angle) * speed * initialVelocityXEasing(t) * speedMultiplier * time +
+          acceleration.x * speed2 * time2 / 2,
+      sin(angle) * speed * initialVelocityYEasing(t) * speedMultiplier * time +
+          acceleration.y * speed2 * time2 / 2,
     );
     P position = initialPosition + offset;
     return position;

@@ -188,24 +188,6 @@ class RandomInt implements RandomValue<int> {
   }
 }
 
-class RandomScaledDuration implements RandomValue<Duration> {
-  @override
-  final Duration value;
-
-  final NormalizedDoubleRange? randomize;
-
-  const RandomScaledDuration(this.value, {this.randomize});
-
-  @override
-  Duration at(double random) {
-    Duration ret = value;
-    if (randomize != null) {
-      ret *= randomize!.lerp(random);
-    }
-    return ret;
-  }
-}
-
 class RandomPoint implements RandomValue<P> {
   @override
   final P value;
@@ -228,4 +210,22 @@ class RandomPoint implements RandomValue<P> {
   }
 
   static const zero = RandomPoint(P.zero);
+}
+
+class RandomScaledDuration implements RandomValue<Duration> {
+  @override
+  final Duration value;
+
+  final NormalizedDoubleRange? randomize;
+
+  const RandomScaledDuration(this.value, {this.randomize});
+
+  @override
+  Duration at(double random) {
+    Duration ret = value;
+    if (randomize != null) {
+      ret *= randomize!.lerp(random);
+    }
+    return ret;
+  }
 }

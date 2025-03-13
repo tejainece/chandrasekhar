@@ -6,18 +6,18 @@ export 'deterministic_curve.dart';
 class DeterministicEmitter {
   final EmitterSurface surface;
 
-  // TODO make interval a curve to simulate explosion
-  final Duration interval;
+  final Duration emissionInterval;
   final DeterministicParticleCurve curve;
   final RandomInt particlesPerInterval;
 
-  final RandomScaledDuration lifetime;
+  /// Controls the speed of the particle while keeping the trajectory the same
+  final RandomDouble speed;
+  final RandomDouble speedMultiplier;
 
-  final RandomPoint initialVelocity;
+  final RandomScaledDuration lifetime;
 
   final bool useEmittedAngle;
   final RandomDouble angle;
-  final RandomPoint angleVelocity;
 
   final RandomPoint size;
 
@@ -28,15 +28,17 @@ class DeterministicEmitter {
 
   final _seeds = SeedBucket();
 
+  // TODO explosiveness with multi-particle
+
   DeterministicEmitter({
     RandomAccessRng random = const RandomAccessRng(),
     this.surface = const PointEmitterSurface.origin(),
-    this.interval = const Duration(seconds: 1),
+    this.emissionInterval = const Duration(seconds: 1),
     this.particlesPerInterval = const RandomInt(1),
     this.curve = const SimpleDeterministicParticleCurve(),
     this.lifetime = const RandomScaledDuration(Duration(seconds: 3)),
-    this.initialVelocity = RandomPoint.zero,
-    this.angleVelocity = RandomPoint.zero,
+    this.speed = const RandomDouble(400),
+    this.speedMultiplier = const RandomDouble(1),
     this.size = const RandomPoint(P(5, 5)),
     this.useEmittedAngle = true,
     this.angle = RandomDouble.zero,
@@ -46,12 +48,13 @@ class DeterministicEmitter {
     Duration from = at - lifetime.value;
     from = Duration(
       microseconds:
-      (from.inMicroseconds / interval.inMicroseconds).ceil() *
-          interval.inMicroseconds,
+          (from.inMicroseconds / emissionInterval.inMicroseconds).ceil() *
+          emissionInterval.inMicroseconds,
     );
-    for (; from <= at; from += interval) {
+    for (; from <= at; from += emissionInterval) {
       if (from.isNegative) continue;
-      final intervalNumber = from.inMicroseconds ~/ interval.inMicroseconds;
+      final intervalNumber =
+          from.inMicroseconds ~/ emissionInterval.inMicroseconds;
       final count = particlesPerInterval.at(
         _random.doubleAt(
           intervalNumber,
@@ -78,27 +81,25 @@ class DeterministicEmitter {
         }
         final angleRandom = _random.doubleAt(id, seed: _seeds.getSeed('angle'));
         angle += this.angle.at(angleRandom);
-        P initialVelocity = this.initialVelocity.at(
-          _random.doubleAt(id, seed: _seeds.getSeed('initialVelocity')),
-        );
-        P angleVelocity = this.angleVelocity.at(
-          _random.doubleAt(id, seed: _seeds.getSeed('angleVelocity')),
-        );
         final position = curve.positionAtT(
           myLifetime * t,
           t,
           initialPosition: initialPosition,
-          initialVelocity: initialVelocity,
-          angleVelocity: angleVelocity,
-          angle: angle.value, // angle.value,
+          speed: speed.at(_random.doubleAt(id, seed: _seeds.getSeed('speed'))),
+          speedMultiplier: speedMultiplier.at(
+            _random.doubleAt(id, seed: _seeds.getSeed('speedMultiplier')),
+          ),
+          angle: angle.value,
         );
         final previousPos = curve.positionAtT(
           myLifetime * t - Duration(microseconds: 50),
           t,
           initialPosition: initialPosition,
-          initialVelocity: initialVelocity,
-          angleVelocity: angleVelocity,
-          angle: angle.value, // angle.value,
+          speed: speed.at(_random.doubleAt(id, seed: _seeds.getSeed('speed'))),
+          speedMultiplier: speedMultiplier.at(
+            _random.doubleAt(id, seed: _seeds.getSeed('speedMultiplier')),
+          ),
+          angle: angle.value,
         );
         final curveAngle = LineSegment(previousPos, position).angle;
         yield Particle(
